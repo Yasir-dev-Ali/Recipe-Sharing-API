@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import sendVerificationEmail from "../utils/sendEmail.js";
 import { validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
+import { token } from "morgan";
 
 // Register User with Email Verification
 const register = async (req, res) => {
@@ -28,11 +29,13 @@ const register = async (req, res) => {
         // Send verification email
         await sendVerificationEmail(email, emailToken);
 
-        res.status(201).json({ message: "User registered successfully! Please verify your email." });
+        res.status(201).json({ message: "User registered successfully! Please verify your email.",token:emailToken,token });
+
     } catch (error) {
         res.status(500).json({ message: "Server Error", error });
     }
 };
+
 
 // Verify Email
 const verifyEmail = async (req, res) => {
@@ -51,6 +54,10 @@ const verifyEmail = async (req, res) => {
         res.status(500).json({ message: "Server Error", error });
     }
 };
+
+// User Profile
+
+
 
 // Login User (Only verified users can log in)
 const login = async (req, res) => {
@@ -73,4 +80,47 @@ const login = async (req, res) => {
     }
 };
 
-export  { register, verifyEmail, login };
+// Forgot Password - Sends reset link
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const user = await Auth.findOne({ email });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const resetToken = uuidv4();
+        user.resetPasswordToken = resetToken;
+        await user.save();
+
+        const resetLink = `${process.env.BASE_URL}/api/auth/reset-password?token=${resetToken}`;
+
+        await sendEmail(email, "Reset Your Password", `<p>Click the link to reset your password:</p>
+        <a href="${resetLink}">Reset Password</a>`);
+
+        res.json({ message: "Password reset link sent to email" });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error });
+    }
+};
+
+// Reset Password
+const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        const user = await Auth.findOne({ resetPasswordToken: token });
+        if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        user.resetPasswordToken = null; // Remove token after reset
+        await user.save();
+
+        res.json({ message: "Password reset successful" });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error });
+    }
+};
+
+
+export  { register, verifyEmail, login, forgotPassword, resetPassword };

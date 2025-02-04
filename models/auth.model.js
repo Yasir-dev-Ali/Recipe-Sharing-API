@@ -35,6 +35,13 @@ const authSchema = new mongoose.Schema({
 
          ref: "User" }],
 
+         profile: {
+            fullName: { type: String },
+            bio: { type: String },
+            avatar: { type: String }, // Profile picture URL
+        },
+        resetPasswordToken: { type: String }, // Token for password reset
+
 emailToken: { type: String }, // Store verification token
 },{timestamps: true});
 
